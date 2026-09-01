@@ -214,6 +214,7 @@
     <div class="nav-item active" data-tab="notebook">💻 Notebooks <span class="count" id="cnt-notebook">0</span></div>
     <div class="nav-item" data-tab="cctv">🎥 CCTV <span class="count" id="cnt-cctv">0</span></div>
     <div class="nav-item" data-tab="network">🌐 Network <span class="count" id="cnt-network">0</span></div>
+    <div class="nav-item" data-tab="walkie">📻 Walkie Talkie <span class="count" id="cnt-walkie">0</span></div>
     <div class="sidebar-foot">public ledger — access is<br>code-gated per session</div>
   </div>
 
@@ -357,10 +358,28 @@ const SCHEMAS = {
     ],
     columns: ["assetId","type","brand","ip","location","status"],
     colLabels: ["Device ID","ประเภท","ยี่ห้อ","IP Address","ตำแหน่ง","สถานะ"]
+  },
+  walkie: {
+    label: "Walkie Talkie", sub: "รายการวิทยุสื่อสารทั้งหมด",
+    statuses: ["Active","Repair","Retired"],
+    fields: [
+      {key:"assetId", label:"Radio ID", type:"text", required:true, mono:true},
+      {key:"brand", label:"ยี่ห้อ", type:"text"},
+      {key:"model", label:"รุ่น", type:"text"},
+      {key:"frequency", label:"ความถี่ / ช่องสัญญาณ", type:"text"},
+      {key:"assignedTo", label:"ผู้ใช้งาน", type:"text"},
+      {key:"department", label:"แผนก", type:"text"},
+      {key:"location", label:"สถานที่", type:"text"},
+      {key:"status", label:"สถานะ", type:"select", options:["Active","Repair","Retired"]},
+      {key:"purchaseDate", label:"วันที่ซื้อ", type:"date"},
+      {key:"notes", label:"หมายเหตุ", type:"textarea"}
+    ],
+    columns: ["assetId","brand","model","assignedTo","department","status"],
+    colLabels: ["Radio ID","ยี่ห้อ","รุ่น","ผู้ใช้งาน","แผนก","สถานะ"]
   }
 };
 
-let data = {notebook:[], cctv:[], network:[]};
+let data = {notebook:[], cctv:[], network:[], walkie:[]};
 let currentTab = "notebook";
 let editingId = null;
 let pmItemId = null;
@@ -371,7 +390,7 @@ const STORAGE_KEY = "inventory-data-v1";
 // Paste your deployed Google Apps Script Web App URL here to switch the
 // database over to Google Sheets. Leave it empty ("") to keep using the
 // built-in artifact storage.
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzHKQUcB2-TMXgGWD0pbfYayqKx1pfJCUmEf0SeVBGEjyahuDwdNe7cMOIzpcbbR3Hr/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzOv0FMHZ4Ta86XPbUKiQ41cBZXX9jdp5yerDBDT3I3Wy405VDnuIWuYMTDaMePkllk/exec";
 
 function showToast(message){
   const t = document.getElementById("toast");
@@ -423,7 +442,7 @@ function tryUnlock(){
 
 function lockApp(){
   userRole = null;
-  data = {notebook:[], cctv:[], network:[]};
+  data = {notebook:[], cctv:[], network:[], walkie:[]};
   document.getElementById("lock-input").value = "";
   document.getElementById("lock-error").textContent = "";
   document.getElementById("app-root").style.display = "none";
@@ -462,7 +481,7 @@ async function loadData(){
   if(GAS_URL){
     try{
       const json = await jsonpRequest(GAS_URL);
-      data = {notebook: json.notebook||[], cctv: json.cctv||[], network: json.network||[]};
+      data = {notebook: json.notebook||[], cctv: json.cctv||[], network: json.network||[], walkie: json.walkie||[]};
     }catch(e){
       console.error("load from Google Sheets failed", e);
       showToast("โหลดข้อมูลจาก Google Sheets ไม่สำเร็จ");
@@ -472,7 +491,7 @@ async function loadData(){
       const res = await window.storage.get(STORAGE_KEY, true);
       if(res && res.value){
         const parsed = JSON.parse(res.value);
-        data = {notebook: parsed.notebook||[], cctv: parsed.cctv||[], network: parsed.network||[]};
+        data = {notebook: parsed.notebook||[], cctv: parsed.cctv||[], network: parsed.network||[], walkie: parsed.walkie||[]};
       }
     }catch(e){
       console.log("no existing data yet, starting fresh");
@@ -630,6 +649,13 @@ const PM_ITEMS_DEFAULT_BY_TYPE = {
     {id:"d1", label:"ปัดฝุ่น เช็กสายสัญญาณ และดูสถานะไฟ LED ของอุปกรณ์"},
     {id:"d2", label:"สำรองไฟล์ตั้งค่า (Config) ของ Router และ Switch เก็บไว้ทุกครั้ง"},
     {id:"d3", label:"ตรวจสอบความร้อน ประสิทธิภาพ CPU/Memory และความหนาแน่นของ Traffic"}
+  ],
+  walkie: [
+    {id:"d1", label:"ตรวจสอบตัวเครื่อง รอยแตกร้าว การยึดแน่นของอุปกรณ์"},
+    {id:"d2", label:"ทำความสะอาดฝุ่นและสิ่งสกปรก"},
+    {id:"d3", label:"ตรวจสอบความแน่นของขั้วต่อ สายสัญญาณ และแบตเตอรี่"},
+    {id:"d4", label:"ทดสอบเปิด-ปิด การทำงานของฟังก์ชันหลักทั้งหมด"},
+    {id:"d5", label:"สัญญาณไฟแสดงสถานะ (LED) และข้อความแจ้งเตือน"}
   ]
 };
 const MONTHS_TH = ["1","2","3","4","5","6","7","8","9","10","11","12"];
