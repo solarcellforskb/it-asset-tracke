@@ -190,7 +190,8 @@
     .app{flex-direction:column;}
     .sidebar{width:100%; flex-direction:row; overflow-x:auto; padding:12px;}
     .brand{display:none;}
-    .sidebar-foot{display:none;}
+    .sidebar-foot{margin-top:0; flex-shrink:0; padding:0 8px;}
+    .sidebar-foot-text{display:none;}
     .stats{grid-template-columns:repeat(2,1fr);}
     .main{padding:18px;}
     table{font-size:12px;}
@@ -219,7 +220,13 @@
     <div class="nav-item" data-tab="cctv">🎥 CCTV <span class="count" id="cnt-cctv">0</span></div>
     <div class="nav-item" data-tab="network">🌐 Network <span class="count" id="cnt-network">0</span></div>
     <div class="nav-item" data-tab="walkie">📻 Walkie Talkie <span class="count" id="cnt-walkie">0</span></div>
-    <div class="sidebar-foot">public ledger — access is<br>code-gated per session</div>
+    <div class="sidebar-foot">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+        <span class="role-pill" id="role-pill">viewer</span>
+        <span class="logout-link" onclick="lockApp()">ออกจากระบบ</span>
+      </div>
+      <span class="sidebar-foot-text">public ledger — access is<br>code-gated per session</span>
+    </div>
   </div>
 
   <div class="main">
@@ -229,8 +236,6 @@
         <div class="sub" id="page-sub">รายการโน้ตบุ๊กทั้งหมดในระบบ</div>
       </div>
       <div class="actions">
-        <span class="role-pill" id="role-pill">viewer</span>
-        <span class="logout-link" onclick="lockApp()">ออกจากระบบ</span>
         <input type="text" id="search" placeholder="ค้นหา...">
         <button class="btn ghost" id="export-excel-btn" title="Export เป็น Excel">📊 Excel</button>
         <button class="btn ghost" id="export-pdf-btn" title="Export เป็น PDF">📄 PDF</button>
@@ -426,8 +431,8 @@ function resolveConfirm(result){
 // Access codes — change these to whatever you like.
 // NOTE: this is a client-side-only check (view-source would reveal these),
 // suitable for keeping casual visitors from editing, not for protecting truly sensitive data.
-const ADMIN_CODE = "admin@skb2026";
-const VIEWER_CODE = "user2026";
+const ADMIN_CODE = "admin2026";
+const VIEWER_CODE = "view2026";
 
 function tryUnlock(){
   const val = document.getElementById("lock-input").value.trim();
@@ -1021,4 +1026,3 @@ document.getElementById("confirm-overlay").addEventListener("click", (e)=>{ if(e
 </script>
 </body>
 </html>
-
