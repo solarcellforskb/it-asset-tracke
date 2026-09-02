@@ -1,1 +1,1176 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOC / Asset Ledger</title>
+<style>
+  :root{
+    --bg:#0B0E12;
+    --panel:#12161C;
+    --panel-2:#171C24;
+    --line:#232A34;
+    --text:#E7EBEF;
+    --muted:#7C8A9A;
+    --cyan:#4FD1C5;
+    --cyan-dim:rgba(79,209,197,0.12);
+    --amber:#F2A65A;
+    --amber-dim:rgba(242,166,90,0.12);
+    --red:#E5677A;
+    --red-dim:rgba(229,103,122,0.12);
+    --mono: 'JetBrains Mono','SF Mono',Consolas,monospace;
+    --sans: 'Inter',-apple-system,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--sans);
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .app{display:flex; min-height:100vh;}
+
+  /* Sidebar */
+  .sidebar{
+    width:220px; flex-shrink:0; background:var(--panel);
+    border-right:1px solid var(--line); padding:22px 14px;
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .brand{
+    font-family:var(--mono); font-size:13px; letter-spacing:0.06em;
+    color:var(--cyan); padding:0 10px 20px 10px; display:flex; align-items:center; gap:8px;
+  }
+  .brand .dot{width:8px; height:8px; border-radius:50%; background:var(--cyan); box-shadow:0 0 8px var(--cyan); animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
+  .nav-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:11px 12px; border-radius:8px; cursor:pointer; color:var(--muted);
+    font-size:13.5px; font-weight:500; transition:background .15s, color .15s;
+  }
+  .nav-item:hover{background:var(--panel-2); color:var(--text);}
+  .nav-item.active{background:var(--cyan-dim); color:var(--cyan);}
+  .nav-item .count{font-family:var(--mono); font-size:11px; color:var(--muted); background:var(--panel-2); padding:2px 7px; border-radius:20px;}
+  .nav-item.active .count{color:var(--cyan);}
+  .sidebar-foot{margin-top:auto; padding:10px; font-size:11px; color:var(--muted); line-height:1.6; font-family:var(--mono);}
+
+  /* Main */
+  .main{flex:1; padding:28px 34px; max-width:1280px;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:14px;}
+  .topbar h1{font-size:20px; font-weight:700; letter-spacing:-0.01em;}
+  .topbar .sub{font-size:12.5px; color:var(--muted); margin-top:3px;}
+  .actions{display:flex; gap:10px;}
+  input, select, textarea{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:9px 12px; font-size:13.5px; font-family:var(--sans);
+    outline:none;
+  }
+  input:focus, select:focus, textarea:focus{border-color:var(--cyan);}
+  .btn{
+    background:var(--cyan); color:#0B0E12; border:none; border-radius:8px;
+    padding:9px 16px; font-size:13.5px; font-weight:700; cursor:pointer;
+    transition:filter .15s;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn.ghost{background:transparent; border:1px solid var(--line); color:var(--text); font-weight:600;}
+  .btn.ghost:hover{border-color:var(--cyan); color:var(--cyan);}
+  .btn.danger{background:var(--red); color:#170a0d;}
+
+  /* Stat strip */
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:22px;}
+  .stat{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px;}
+  .stat .n{font-family:var(--mono); font-size:22px; font-weight:700;}
+  .stat .l{font-size:11.5px; color:var(--muted); margin-top:2px;}
+  .stat.ok .n{color:var(--cyan);}
+  .stat.warn .n{color:var(--amber);}
+  .stat.bad .n{color:var(--red);}
+
+  /* Table */
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden;}
+  .panel-head{display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid var(--line); gap:12px; flex-wrap:wrap;}
+  table{width:100%; border-collapse:collapse;}
+  th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--muted); padding:11px 18px; border-bottom:1px solid var(--line); font-weight:600;
+  }
+  td{padding:12px 18px; font-size:13.5px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  tbody tr:hover{background:var(--panel-2);}
+  tbody tr:last-child td{border-bottom:none;}
+  .idcell{font-family:var(--mono); font-size:12.5px; color:var(--cyan);}
+  .ip{font-family:var(--mono); font-size:12.5px; color:var(--muted);}
+  .badge{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px;
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
+  }
+  .badge::before{content:''; width:6px; height:6px; border-radius:50%; background:currentColor;}
+  .badge.ok{background:var(--cyan-dim); color:var(--cyan);}
+  .badge.warn{background:var(--amber-dim); color:var(--amber);}
+  .badge.bad{background:var(--red-dim); color:var(--red);}
+  .rowbtns{display:flex; gap:8px; justify-content:flex-end;}
+  .iconbtn{background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:4px 6px; border-radius:6px;}
+  .iconbtn:hover{color:var(--text); background:var(--panel-2);}
+  .empty{padding:50px 20px; text-align:center; color:var(--muted); font-size:13.5px;}
+
+  /* Modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(5,7,10,0.7); backdrop-filter:blur(3px);
+    display:none; align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    width:100%; max-width:460px; max-height:88vh; padding:0;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .modal > h2{font-size:16px; padding:22px 22px 0 22px; margin-bottom:16px; flex-shrink:0;}
+  .modal-body{overflow-y:auto; padding:0 22px; flex:1; min-height:0;}
+  .confirm-modal .modal-body{padding-top:22px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:12px; color:var(--muted); margin-bottom:5px;}
+  .field input, .field select, .field textarea{width:100%;}
+  .modal-foot{display:flex; justify-content:flex-end; gap:10px; padding:16px 22px 22px 22px; border-top:1px solid var(--line); flex-shrink:0; background:var(--panel);}
+
+  /* PM checklist grid */
+  .pm-modal{max-width:720px;}
+  .pm-top-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .pm-year-row{display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  .pm-year-row label{font-size:12px; color:var(--muted);}
+  .pm-year-row select{width:auto;}
+  .pm-grid{width:100%; border-collapse:collapse; margin-bottom:16px; font-size:12px;}
+  .pm-grid th, .pm-grid td{border:1px solid var(--line); padding:7px 6px; text-align:center;}
+  .pm-grid th{background:var(--panel-2); color:var(--muted); font-weight:600; font-size:11px;}
+  .pm-grid td.item-label{text-align:left; font-size:12px; color:var(--text); min-width:180px; position:relative; padding-right:26px;}
+  .pm-item-del{position:absolute; right:4px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:2px 5px;}
+  .pm-item-del:hover{color:var(--red);}
+  .pm-add-item-row{display:flex; gap:8px; margin-bottom:16px;}
+  .pm-add-item-row input{flex:1;}
+  .pm-grid input[type="checkbox"]{width:16px; height:16px; accent-color:var(--cyan); cursor:pointer;}
+  .pm-grid input[type="checkbox"]:disabled{cursor:default; opacity:0.6;}
+  .pm-signoff{border-top:1px solid var(--line); padding-top:14px; margin-top:4px;}
+  .sig-row{margin-bottom:14px;}
+  .sig-label-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;}
+  .sig-label-row label{font-size:12px; color:var(--muted);}
+  .sig-clear-link{font-size:11.5px; color:var(--muted); cursor:pointer; text-decoration:underline;}
+  .sig-clear-link:hover{color:var(--text);}
+  #pm-signature-canvas{
+    display:block; width:100%; height:130px; background:#fff; border-radius:8px;
+    border:1px solid var(--line); cursor:crosshair; touch-action:none;
+  }
+  #pm-signature-canvas.readonly{cursor:default;}
+  .toast{
+    position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-20px);
+    background:var(--panel); border:1px solid var(--line); color:var(--text);
+    padding:12px 20px; border-radius:10px; font-size:13px; z-index:200;
+    opacity:0; pointer-events:none; transition:opacity .2s, transform .2s;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .confirm-modal{max-width:340px; text-align:center;}
+  .confirm-modal p{font-size:13.5px; margin-bottom:20px; line-height:1.6;}
+  .confirm-modal .modal-foot{justify-content:center;}
+  .pm-badge{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px;
+    font-size:11px; font-weight:700;
+  }
+  .pm-badge.none{background:var(--panel-2); color:var(--muted);}
+  .pm-badge.upcoming{background:var(--cyan-dim); color:var(--cyan);}
+
+  /* Lock screen */
+  .lock-screen{
+    position:fixed; inset:0; background:var(--bg); z-index:100;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .lock-box{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:36px 30px; width:100%; max-width:380px; text-align:center;
+  }
+  .lock-box .icon{font-size:32px; margin-bottom:14px;}
+  .lock-box h2{font-size:17px; margin-bottom:6px;}
+  .lock-box p{font-size:12.5px; color:var(--muted); margin-bottom:20px; line-height:1.6;}
+  .lock-box input{width:100%; text-align:center; font-family:var(--mono); letter-spacing:0.1em; margin-bottom:12px;}
+  .lock-box .btn{width:100%;}
+  .lock-error{color:var(--red); font-size:12.5px; margin-top:10px; min-height:16px;}
+  .role-pill{
+    display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11px;
+    color:var(--muted); background:var(--panel-2); border:1px solid var(--line);
+    padding:5px 11px; border-radius:20px;
+  }
+  .role-pill.admin{color:var(--cyan); border-color:rgba(79,209,197,0.3);}
+  .logout-link{color:var(--muted); font-size:11.5px; cursor:pointer; text-decoration:underline; margin-left:10px;}
+  .logout-link:hover{color:var(--text);}
+
+  @media (max-width:800px){
+    .app{flex-direction:column;}
+    .sidebar{width:100%; flex-direction:row; overflow-x:auto; padding:12px;}
+    .brand{display:none;}
+    .sidebar-foot{margin-top:0; flex-shrink:0; padding:0 8px;}
+    .sidebar-foot-text{display:none;}
+    .stats{grid-template-columns:repeat(2,1fr);}
+    .main{padding:18px;}
+    table{font-size:12px;}
+    th,td{padding:9px 10px;}
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div class="lock-screen" id="lock-screen">
+  <div class="lock-box">
+    <div class="icon">🔒</div>
+    <h2>Asset Ledger</h2>
+    <p>กรุณากรอกรหัสผ่านเพื่อเข้าใช้งาน<br>(รหัสผู้ดูแลใช้แก้ไขได้ / รหัสผู้ดูใช้ดูอย่างเดียว)</p>
+    <input type="password" id="lock-input" placeholder="รหัสผ่าน" onkeydown="if(event.key==='Enter') tryUnlock()">
+    <button class="btn" onclick="tryUnlock()">เข้าสู่ระบบ</button>
+    <div class="lock-error" id="lock-error"></div>
+  </div>
+</div>
+
+<div class="app" id="app-root" style="display:none;">
+  <div class="sidebar">
+    <div class="brand"><span class="dot"></span>ASSET-LEDGER</div>
+    <div class="nav-item active" data-tab="notebook">💻 Notebook / PC <span class="count" id="cnt-notebook">0</span></div>
+    <div class="nav-item" data-tab="cctv">🎥 CCTV <span class="count" id="cnt-cctv">0</span></div>
+    <div class="nav-item" data-tab="network">🌐 Network <span class="count" id="cnt-network">0</span></div>
+    <div class="nav-item" data-tab="walkie">📻 Walkie Talkie <span class="count" id="cnt-walkie">0</span></div>
+    <div class="sidebar-foot">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+        <span class="role-pill" id="role-pill">viewer</span>
+        <span class="logout-link" onclick="lockApp()">ออกจากระบบ</span>
+      </div>
+      <span class="sidebar-foot-text">public ledger — access is<br>code-gated per session</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="page-title">Notebook / PC</h1>
+        <div class="sub" id="page-sub">รายการโน้ตบุ๊กทั้งหมดในระบบ</div>
+      </div>
+      <div class="actions">
+        <input type="text" id="search" placeholder="ค้นหา...">
+        <button class="btn ghost" id="export-excel-btn" title="Export เป็น Excel">📊 Excel</button>
+        <button class="btn ghost" id="export-pdf-btn" title="Export เป็น PDF">📄 PDF</button>
+        <button class="btn" id="add-btn">+ เพิ่มรายการ</button>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div style="font-size:13px; font-weight:600;">รายการทั้งหมด</div>
+        <select id="status-filter">
+          <option value="">สถานะทั้งหมด</option>
+        </select>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr id="thead-row"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="empty-state" style="display:none;">ยังไม่มีรายการ — กด "+ เพิ่มรายการ" เพื่อเริ่มต้น</div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modal-title">เพิ่มรายการ</h2>
+    <div class="modal-body">
+      <div id="modal-fields"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="cancel-btn">ยกเลิก</button>
+      <button class="btn" id="save-btn">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="pm-overlay">
+  <div class="modal pm-modal">
+    <h2 id="pm-modal-title">บันทึกการบำรุงรักษาคอมพิวเตอร์และอุปกรณ์</h2>
+    <div class="modal-body">
+      <div class="pm-top-row">
+        <div class="field"><label>รหัสเครื่อง</label><input type="text" id="pm-asset-code" disabled></div>
+        <div class="field"><label>ผู้รับผิดชอบ</label><input type="text" id="pm-responsible" placeholder="ชื่อผู้รับผิดชอบ"></div>
+      </div>
+      <div class="pm-year-row">
+        <label>การตรวจสอบ ปี (พ.ศ.)</label>
+        <select id="pm-year-select"></select>
+        <button class="btn ghost" id="pm-add-year-btn" type="button">+ ปีใหม่</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="pm-grid" id="pm-grid"></table>
+      </div>
+      <div class="pm-add-item-row" id="pm-add-item-row">
+        <input type="text" id="pm-new-item" placeholder="เพิ่มรายการตรวจสอบใหม่...">
+        <button class="btn ghost" id="pm-add-item-btn" type="button">+ เพิ่มรายการ</button>
+      </div>
+      <div class="pm-signoff">
+        <div class="field"><label>ผู้ตรวจสอบ</label><input type="text" id="pm-inspector" placeholder="ชื่อผู้ตรวจสอบ"></div>
+        <div class="sig-row">
+          <div class="sig-label-row">
+            <label>ลายเซ็นผู้ตรวจสอบ</label>
+            <span class="sig-clear-link" id="pm-signature-clear">ล้างลายเซ็น</span>
+          </div>
+          <canvas id="pm-signature-canvas" width="500" height="150"></canvas>
+        </div>
+        <div class="field"><label>วันที่ตรวจ</label><input type="date" id="pm-inspect-date"></div>
+        <div class="field"><label>หมายเหตุ</label><textarea id="pm-notes" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="pm-close-btn">ปิด</button>
+      <button class="btn" id="pm-save-btn">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="confirm-overlay">
+  <div class="modal confirm-modal">
+    <div class="modal-body"><p id="confirm-message"></p></div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="confirm-cancel-btn">ยกเลิก</button>
+      <button class="btn danger" id="confirm-ok-btn">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SCHEMAS = {
+  notebook: {
+    label: "Notebook / PC", sub: "รายการโน้ตบุ๊กทั้งหมดในระบบ",
+    statuses: ["Active","ว่าง","Repair","Retired"],
+    fields: [
+      {key:"assetId", label:"Asset ID", type:"text", required:true, mono:true},
+      {key:"brand", label:"ยี่ห้อ", type:"text"},
+      {key:"model", label:"รุ่น", type:"text"},
+      {key:"serial", label:"Serial Number", type:"text", mono:true},
+      {key:"assignedTo", label:"ผู้ใช้งาน", type:"text"},
+      {key:"department", label:"แผนก", type:"text"},
+      {key:"location", label:"สถานที่", type:"text"},
+      {key:"status", label:"สถานะ", type:"select", options:["Active","ว่าง","Repair","Retired"]},
+      {key:"purchaseDate", label:"วันที่ซื้อ", type:"date"},
+      {key:"notes", label:"หมายเหตุ", type:"textarea"}
+    ],
+    columns: ["assetId","brand","model","assignedTo","department","status"],
+    colLabels: ["Asset ID","ยี่ห้อ","รุ่น","ผู้ใช้งาน","แผนก","สถานะ"]
+  },
+  cctv: {
+    label: "CCTV", sub: "รายการกล้องวงจรปิดทั้งหมด",
+    statuses: ["Online","ว่าง","Offline","Maintenance"],
+    fields: [
+      {key:"assetId", label:"Camera ID", type:"text", required:true, mono:true},
+      {key:"brand", label:"ยี่ห้อ", type:"text"},
+      {key:"model", label:"รุ่น", type:"text"},
+      {key:"ip", label:"IP Address", type:"text", mono:true},
+      {key:"location", label:"ตำแหน่งติดตั้ง", type:"text"},
+      {key:"resolution", label:"ความละเอียด", type:"text"},
+      {key:"status", label:"สถานะ", type:"select", options:["Online","ว่าง","Offline","Maintenance"]},
+      {key:"installDate", label:"วันที่ติดตั้ง", type:"date"},
+      {key:"notes", label:"หมายเหตุ", type:"textarea"}
+    ],
+    columns: ["assetId","brand","ip","location","resolution","status"],
+    colLabels: ["Camera ID","ยี่ห้อ","IP Address","ตำแหน่ง","ความละเอียด","สถานะ"]
+  },
+  network: {
+    label: "Network", sub: "อุปกรณ์เครือข่ายทั้งหมด (Switch / Router / AP / Firewall)",
+    statuses: ["Online","ว่าง","Offline","Maintenance"],
+    fields: [
+      {key:"assetId", label:"Device ID", type:"text", required:true, mono:true},
+      {key:"type", label:"ประเภทอุปกรณ์", type:"select", options:["Switch","Router","Access Point","Firewall","Other"]},
+      {key:"brand", label:"ยี่ห้อ", type:"text"},
+      {key:"model", label:"รุ่น", type:"text"},
+      {key:"ip", label:"IP Address", type:"text", mono:true},
+      {key:"location", label:"ตำแหน่งติดตั้ง", type:"text"},
+      {key:"status", label:"สถานะ", type:"select", options:["Online","ว่าง","Offline","Maintenance"]},
+      {key:"notes", label:"หมายเหตุ", type:"textarea"}
+    ],
+    columns: ["assetId","type","brand","ip","location","status"],
+    colLabels: ["Device ID","ประเภท","ยี่ห้อ","IP Address","ตำแหน่ง","สถานะ"]
+  },
+  walkie: {
+    label: "Walkie Talkie", sub: "รายการวิทยุสื่อสารทั้งหมด",
+    statuses: ["Active","ว่าง","Repair","Retired"],
+    fields: [
+      {key:"assetId", label:"Radio ID", type:"text", required:true, mono:true},
+      {key:"brand", label:"ยี่ห้อ", type:"text"},
+      {key:"model", label:"รุ่น", type:"text"},
+      {key:"frequency", label:"ความถี่ / ช่องสัญญาณ", type:"text"},
+      {key:"assignedTo", label:"ผู้ใช้งาน", type:"text"},
+      {key:"department", label:"แผนก", type:"text"},
+      {key:"location", label:"สถานที่", type:"text"},
+      {key:"status", label:"สถานะ", type:"select", options:["Active","ว่าง","Repair","Retired"]},
+      {key:"purchaseDate", label:"วันที่ซื้อ", type:"date"},
+      {key:"notes", label:"หมายเหตุ", type:"textarea"}
+    ],
+    columns: ["assetId","brand","model","assignedTo","department","status"],
+    colLabels: ["Radio ID","ยี่ห้อ","รุ่น","ผู้ใช้งาน","แผนก","สถานะ"]
+  }
+};
+
+let data = {notebook:[], cctv:[], network:[], walkie:[]};
+let currentTab = "notebook";
+let editingId = null;
+let pmItemId = null;
+let userRole = null; // 'admin' | 'viewer'
+let confirmResolve = null;
+const STORAGE_KEY = "inventory-data-v1";
+
+// Paste your deployed Google Apps Script Web App URL here to switch the
+// database over to Google Sheets. Leave it empty ("") to keep using the
+// built-in artifact storage.
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwIJAslPpeJtoBgyNMImfgApnM9g7z7Iwquqoe23zsNP6swttpEXO5egZEzyRS6RXRsMw/exec";
+
+function showToast(message){
+  const t = document.getElementById("toast");
+  t.textContent = message;
+  t.classList.add("show");
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(()=> t.classList.remove("show"), 2500);
+}
+
+function showConfirm(message){
+  return new Promise(resolve=>{
+    confirmResolve = resolve;
+    document.getElementById("confirm-message").textContent = message;
+    document.getElementById("confirm-overlay").classList.add("show");
+  });
+}
+
+function resolveConfirm(result){
+  document.getElementById("confirm-overlay").classList.remove("show");
+  if(confirmResolve){ confirmResolve(result); confirmResolve = null; }
+}
+
+// Access codes — change these to whatever you like.
+// NOTE: this is a client-side-only check (view-source would reveal these),
+// suitable for keeping casual visitors from editing, not for protecting truly sensitive data.
+const ADMIN_CODE = "admin2026";
+const VIEWER_CODE = "view2026";
+
+function tryUnlock(){
+  const val = document.getElementById("lock-input").value.trim();
+  const errorEl = document.getElementById("lock-error");
+  if(val === ADMIN_CODE){
+    userRole = "admin";
+  } else if(val === VIEWER_CODE){
+    userRole = "viewer";
+  } else {
+    errorEl.textContent = "รหัสผ่านไม่ถูกต้อง";
+    return;
+  }
+  errorEl.textContent = "";
+  document.getElementById("lock-screen").style.display = "none";
+  document.getElementById("app-root").style.display = "flex";
+  const pill = document.getElementById("role-pill");
+  pill.textContent = userRole === "admin" ? "🛠 admin" : "👁 viewer";
+  pill.classList.toggle("admin", userRole === "admin");
+  document.getElementById("add-btn").style.display = userRole === "admin" ? "inline-block" : "none";
+  loadData();
+}
+
+function lockApp(){
+  userRole = null;
+  data = {notebook:[], cctv:[], network:[], walkie:[]};
+  document.getElementById("lock-input").value = "";
+  document.getElementById("lock-error").textContent = "";
+  document.getElementById("app-root").style.display = "none";
+  document.getElementById("lock-screen").style.display = "flex";
+}
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+
+async function withSavingState(btnId, savingLabel, task){
+  const btn = document.getElementById(btnId);
+  const originalText = btn.textContent;
+  const originalWidth = btn.offsetWidth;
+  btn.style.minWidth = originalWidth + "px";
+  btn.disabled = true;
+  btn.textContent = savingLabel;
+  try{
+    // Keep the button visible in its "saving" state for a beat even if the
+    // save itself is instant, so it doesn't feel like it vanished the moment
+    // it was clicked.
+    await Promise.all([task(), new Promise(r=>setTimeout(r, 450))]);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+    btn.style.minWidth = "";
+  }
+}
+
+function jsonpRequest(url){
+  return new Promise((resolve, reject)=>{
+    const callbackName = "gasCallback_" + Date.now() + "_" + Math.floor(Math.random()*100000);
+    const script = document.createElement("script");
+    const timer = setTimeout(()=>{
+      cleanup();
+      reject(new Error("timeout"));
+    }, 15000);
+    function cleanup(){
+      clearTimeout(timer);
+      delete window[callbackName];
+      if(script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[callbackName] = function(data){
+      cleanup();
+      resolve(data);
+    };
+    script.onerror = function(){
+      cleanup();
+      reject(new Error("script load error"));
+    };
+    script.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "callback=" + callbackName;
+    document.head.appendChild(script);
+  });
+}
+
+async function loadData(){
+  if(GAS_URL){
+    try{
+      const json = await jsonpRequest(GAS_URL);
+      data = {notebook: json.notebook||[], cctv: json.cctv||[], network: json.network||[], walkie: json.walkie||[]};
+    }catch(e){
+      console.error("load from Google Sheets failed", e);
+      showToast("โหลดข้อมูลจาก Google Sheets ไม่สำเร็จ");
+    }
+  } else {
+    try{
+      const res = await window.storage.get(STORAGE_KEY, true);
+      if(res && res.value){
+        const parsed = JSON.parse(res.value);
+        data = {notebook: parsed.notebook||[], cctv: parsed.cctv||[], network: parsed.network||[], walkie: parsed.walkie||[]};
+      }
+    }catch(e){
+      console.log("no existing data yet, starting fresh");
+    }
+  }
+  render();
+}
+
+async function saveData(){
+  if(GAS_URL){
+    try{
+      // mode:'no-cors' sidesteps the CORS response-read block — Apps Script
+      // still receives and processes the POST (writes to the Sheet), we just
+      // can't read anything back from the response, which we don't need here.
+      await fetch(GAS_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {"Content-Type": "text/plain;charset=utf-8"},
+        body: JSON.stringify(data)
+      });
+    }catch(e){
+      console.error("save to Google Sheets failed", e);
+      showToast("บันทึกไป Google Sheets ไม่สำเร็จ (เช็คอินเทอร์เน็ต)");
+    }
+  } else {
+    try{
+      await window.storage.set(STORAGE_KEY, JSON.stringify(data), true);
+    }catch(e){
+      console.error("save failed", e);
+      showToast("บันทึกไม่สำเร็จ กรุณาลองใหม่");
+    }
+  }
+}
+
+function statusClass(status){
+  const bad = ["Retired","Offline"];
+  const warn = ["Repair","Maintenance"];
+  if(bad.includes(status)) return "bad";
+  if(warn.includes(status)) return "warn";
+  return "ok";
+}
+
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.toggle("active", n.dataset.tab===tab));
+  document.getElementById("page-title").textContent = SCHEMAS[tab].label;
+  document.getElementById("page-sub").textContent = SCHEMAS[tab].sub;
+  document.getElementById("search").value = "";
+  const filter = document.getElementById("status-filter");
+  filter.innerHTML = '<option value="">สถานะทั้งหมด</option>' +
+    SCHEMAS[tab].statuses.map(s=>`<option value="${s}">${s}</option>`).join("");
+  filter.value = "";
+  render();
+}
+
+function render(){
+  renderCounts();
+  renderStats();
+  renderTable();
+}
+
+function renderCounts(){
+  Object.keys(SCHEMAS).forEach(k=>{
+    document.getElementById("cnt-"+k).textContent = data[k].length;
+  });
+}
+
+function renderStats(){
+  const schema = SCHEMAS[currentTab];
+  const items = data[currentTab];
+  const total = items.length;
+  const counts = {};
+  schema.statuses.forEach(s=> counts[s] = items.filter(i=>i.status===s).length);
+  const statsEl = document.getElementById("stats");
+  statsEl.innerHTML = `
+    <div class="stat"><div class="n">${total}</div><div class="l">ทั้งหมด</div></div>
+    ${schema.statuses.map(s=>{
+      const cls = statusClass(s);
+      return `<div class="stat ${cls==='ok'?'ok':cls==='warn'?'warn':'bad'}"><div class="n">${counts[s]||0}</div><div class="l">${s}</div></div>`;
+    }).join("")}
+  `;
+}
+
+function renderTable(){
+  const schema = SCHEMAS[currentTab];
+  const theadRow = document.getElementById("thead-row");
+  theadRow.innerHTML = schema.colLabels.map(l=>`<th>${l}</th>`).join("") + `<th>PM</th><th style="text-align:right;">จัดการ</th>`;
+
+  const search = document.getElementById("search").value.trim().toLowerCase();
+  const statusFilter = document.getElementById("status-filter").value;
+
+  let items = data[currentTab];
+  if(search){
+    items = items.filter(item => Object.values(item).some(v => String(v||"").toLowerCase().includes(search)));
+  }
+  if(statusFilter){
+    items = items.filter(item => item.status === statusFilter);
+  }
+
+  const tbody = document.getElementById("tbody");
+  const emptyState = document.getElementById("empty-state");
+
+  if(items.length === 0){
+    tbody.innerHTML = "";
+    emptyState.style.display = "block";
+    return;
+  }
+  emptyState.style.display = "none";
+
+  const canEdit = userRole === "admin";
+
+  tbody.innerHTML = items.map(item=>{
+    const cells = schema.columns.map(col=>{
+      if(col === "status"){
+        const cls = statusClass(item.status);
+        return `<td><span class="badge ${cls}">${item.status||"-"}</span></td>`;
+      }
+      if(col === "assetId"){
+        return `<td class="idcell">${item.assetId||"-"}</td>`;
+      }
+      if(col === "ip"){
+        return `<td class="ip">${item.ip||"-"}</td>`;
+      }
+      return `<td>${item[col] || "-"}</td>`;
+    }).join("");
+    const pm = pmStatus(item);
+    const pmCell = `<td><span class="pm-badge ${pm.cls}">${pm.label}</span></td>`;
+    const actionsCell = canEdit
+      ? `<td><div class="rowbtns">
+          <button class="iconbtn" onclick="openPm('${item._id}')">PM</button>
+          <button class="iconbtn" onclick="openEdit('${item._id}')">แก้ไข</button>
+          <button class="iconbtn" onclick="deleteItem('${item._id}')">ลบ</button>
+        </div></td>`
+      : `<td><div class="rowbtns">
+          <button class="iconbtn" onclick="openPm('${item._id}')">ดู PM</button>
+        </div></td>`;
+    return `<tr>${cells}${pmCell}${actionsCell}</tr>`;
+  }).join("");
+}
+
+const PM_ITEMS_DEFAULT_BY_TYPE = {
+  notebook: [
+    {id:"d1", label:"ตรวจสอบและทำความสะอาดภายนอกของอุปกรณ์"},
+    {id:"d2", label:"ตรวจสอบการทำงานของระบบ"},
+    {id:"d3", label:"ตรวจสอบด้านซอฟแวร์และการตั้งค่า"},
+    {id:"d4", label:"ตรวจสอบด้านความปลอดภัยและสภาพแวดล้อม"}
+  ],
+  cctv: [
+    {id:"d1", label:"ทำความสะอาดเครื่อง DVR และกล้อง"},
+    {id:"d2", label:"ตรวจความแน่นของปลั๊กไฟและสายสัญญาณ"},
+    {id:"d3", label:"ตรวจสอบสัญญาณภาพจากกล้องวงจรปิด"},
+    {id:"d4", label:"ตรวจสอบด้านความปลอดภัยและจัดเก็บข้อมูล"}
+  ],
+  network: [
+    {id:"d1", label:"ปัดฝุ่น เช็กสายสัญญาณ และดูสถานะไฟ LED ของอุปกรณ์"},
+    {id:"d2", label:"สำรองไฟล์ตั้งค่า (Config) ของ Router และ Switch เก็บไว้ทุกครั้ง"},
+    {id:"d3", label:"ตรวจสอบความร้อน ประสิทธิภาพ CPU/Memory และความหนาแน่นของ Traffic"}
+  ],
+  walkie: [
+    {id:"d1", label:"ตรวจสอบตัวเครื่อง รอยแตกร้าว การยึดแน่นของอุปกรณ์"},
+    {id:"d2", label:"ทำความสะอาดฝุ่นและสิ่งสกปรก"},
+    {id:"d3", label:"ตรวจสอบความแน่นของขั้วต่อ สายสัญญาณ และแบตเตอรี่"},
+    {id:"d4", label:"ทดสอบเปิด-ปิด การทำงานของฟังก์ชันหลักทั้งหมด"},
+    {id:"d5", label:"สัญญาณไฟแสดงสถานะ (LED) และข้อความแจ้งเตือน"}
+  ]
+};
+const MONTHS_TH = ["1","2","3","4","5","6","7","8","9","10","11","12"];
+
+function currentThaiYear(){
+  return new Date().getFullYear() + 543;
+}
+
+function getDefaultPmItems(type){
+  const base = PM_ITEMS_DEFAULT_BY_TYPE[type] || PM_ITEMS_DEFAULT_BY_TYPE.notebook;
+  return JSON.parse(JSON.stringify(base));
+}
+
+function ensurePmData(item, type){
+  if(!item.pmData) item.pmData = {responsiblePerson:"", items: getDefaultPmItems(type), years:{}};
+  if(!item.pmData.years) item.pmData.years = {};
+  if(!item.pmData.items || item.pmData.items.length === 0) item.pmData.items = getDefaultPmItems(type);
+}
+
+function pmStatus(item){
+  ensurePmData(item, currentTab);
+  const years = item.pmData.years;
+  const yearKeys = Object.keys(years);
+  let lastDate = "";
+  yearKeys.forEach(y=>{
+    if(years[y].inspectDate && years[y].inspectDate > lastDate) lastDate = years[y].inspectDate;
+  });
+  if(!lastDate) return {cls:"none", label:"ยังไม่มีข้อมูล PM"};
+  return {cls:"upcoming", label:"ตรวจล่าสุด "+lastDate};
+}
+
+const PM_MONTH_LABELS_TH = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+
+function collectPmExportRows(items){
+  const rows = [];
+  items.forEach(item=>{
+    if(!item.pmData || !item.pmData.years) return;
+    const years = Object.keys(item.pmData.years).sort((a,b)=>b-a);
+    years.forEach(year=>{
+      const yearData = item.pmData.years[year];
+      const hasActivity = Object.values(yearData.checks || {}).some(v=>v) || yearData.inspector || yearData.inspectDate || yearData.notes;
+      if(!hasActivity) return;
+      (item.pmData.items || []).forEach(ci=>{
+        const months = MONTHS_TH.map((m, idx)=> yearData.checks[ci.id+"_"+(idx+1)] ? "✓" : "");
+        rows.push({
+          assetId: item.assetId || "",
+          year: year,
+          responsible: item.pmData.responsiblePerson || "",
+          checklistItem: ci.label,
+          months: months,
+          inspector: yearData.inspector || "",
+          inspectDate: yearData.inspectDate || "",
+          notes: yearData.notes || ""
+        });
+      });
+    });
+  });
+  return rows;
+}
+
+function exportExcel(){
+  try{
+    if(typeof XLSX === "undefined"){
+      showToast("โหลดไลบรารี Excel ไม่สำเร็จ เช็คอินเทอร์เน็ต");
+      return;
+    }
+    const schema = SCHEMAS[currentTab];
+    const items = data[currentTab];
+    const pmRows = collectPmExportRows(items);
+    if(pmRows.length === 0){
+      showToast("ไม่มีข้อมูล PM ให้ export");
+      return;
+    }
+    const rows = pmRows.map(r=>{
+      const row = {
+        "Asset ID": r.assetId,
+        "ปี (พ.ศ.)": r.year,
+        "ผู้รับผิดชอบ": r.responsible,
+        "รายการตรวจสอบ": r.checklistItem
+      };
+      PM_MONTH_LABELS_TH.forEach((label, i)=>{ row[label] = r.months[i]; });
+      row["ผู้ตรวจสอบ"] = r.inspector;
+      row["วันที่ตรวจ"] = r.inspectDate;
+      row["หมายเหตุ"] = r.notes;
+      return row;
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, ("PM " + schema.label).slice(0,31));
+    const dateStr = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, "PM_" + schema.label + "_" + dateStr + ".xlsx");
+    showToast("Export Excel เรียบร้อย");
+  }catch(err){
+    console.error("exportExcel error", err);
+    showToast("Export Excel ผิดพลาด: " + (err && err.message ? err.message : err));
+  }
+}
+
+function exportPDF(){
+  try{
+    const schema = SCHEMAS[currentTab];
+    const items = data[currentTab];
+    const pmRows = collectPmExportRows(items);
+    if(pmRows.length === 0){
+      showToast("ไม่มีข้อมูล PM ให้ export");
+      return;
+    }
+    const headCols = ["Asset ID","ปี","ผู้รับผิดชอบ","รายการตรวจสอบ"].concat(PM_MONTH_LABELS_TH, ["ผู้ตรวจสอบ","วันที่ตรวจ","หมายเหตุ"]);
+    const headHtml = headCols.map(l=>"<th>"+escapeHtml(l)+"</th>").join("");
+    const rowsHtml = pmRows.map(r=>{
+      const cells = [r.assetId, r.year, r.responsible, r.checklistItem]
+        .concat(r.months)
+        .concat([r.inspector, r.inspectDate, r.notes]);
+      return "<tr>" + cells.map(c=>"<td>"+escapeHtml(c || "-")+"</td>").join("") + "</tr>";
+    }).join("");
+    const printedAt = new Date().toLocaleDateString("th-TH", {year:"numeric", month:"long", day:"numeric"});
+    const html = `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">
+<title>PM ${escapeHtml(schema.label)} - Report</title>
+<style>
+  @page{ size: landscape; }
+  body{font-family:'Tahoma','Segoe UI',sans-serif; padding:24px; color:#111;}
+  h1{font-size:18px; margin-bottom:4px;}
+  .meta{font-size:12px; color:#555; margin-bottom:18px;}
+  table{width:100%; border-collapse:collapse; font-size:11px;}
+  th,td{border:1px solid #ccc; padding:5px 6px; text-align:left; white-space:nowrap;}
+  th{background:#f0f0f0;}
+  @media print{ body{padding:8px;} }
+</style></head>
+<body>
+  <h1>ข้อมูลการบำรุงรักษา (PM) — ${escapeHtml(schema.label)}</h1>
+  <div class="meta">พิมพ์เมื่อ ${printedAt} • ทั้งหมด ${pmRows.length} แถว</div>
+  <table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if(!w){
+      showToast("เบราว์เซอร์บล็อกป๊อปอัป กรุณาอนุญาตแล้วลองใหม่");
+      return;
+    }
+    w.document.write(html);
+    w.document.close();
+    const triggerPrint = ()=>{ try{ w.focus(); w.print(); }catch(e){} };
+    w.onload = triggerPrint;
+    setTimeout(triggerPrint, 300);
+  }catch(err){
+    console.error("exportPDF error", err);
+    showToast("Export PDF ผิดพลาด: " + (err && err.message ? err.message : err));
+  }
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+
+function openPm(id){
+  pmItemId = id;
+  const item = data[currentTab].find(i=>i._id===id);
+  ensurePmData(item, currentTab);
+  const years = Object.keys(item.pmData.years).map(Number);
+  const cy = currentThaiYear();
+  if(years.length === 0){
+    item.pmData.years[cy] = {checks:{}, inspector:"", inspectDate:"", notes:"", signature:""};
+  }
+  renderPmModal(item.pmData.years[cy] ? cy : Math.max(...years));
+  document.getElementById("pm-overlay").classList.add("show");
+}
+
+let sigDrawing = false;
+let sigLastPos = null;
+
+function getSigCanvasPos(canvas, evt){
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  let clientX, clientY;
+  if(evt.touches && evt.touches.length){
+    clientX = evt.touches[0].clientX;
+    clientY = evt.touches[0].clientY;
+  } else {
+    clientX = evt.clientX;
+    clientY = evt.clientY;
+  }
+  return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+}
+
+function setupSignaturePad(){
+  const canvas = document.getElementById("pm-signature-canvas");
+  if(!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.strokeStyle = "#1a1a2e";
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  function start(e){
+    if(userRole !== "admin") return;
+    e.preventDefault();
+    sigDrawing = true;
+    sigLastPos = getSigCanvasPos(canvas, e);
+  }
+  function move(e){
+    if(!sigDrawing) return;
+    e.preventDefault();
+    const pos = getSigCanvasPos(canvas, e);
+    ctx.beginPath();
+    ctx.moveTo(sigLastPos.x, sigLastPos.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    sigLastPos = pos;
+  }
+  function end(){ sigDrawing = false; }
+
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", end);
+  canvas.addEventListener("touchstart", start, {passive:false});
+  canvas.addEventListener("touchmove", move, {passive:false});
+  canvas.addEventListener("touchend", end);
+}
+
+function loadSignatureIntoCanvas(dataUrl){
+  const canvas = document.getElementById("pm-signature-canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if(!dataUrl) return;
+  const img = new Image();
+  img.onload = function(){ ctx.drawImage(img, 0, 0, canvas.width, canvas.height); };
+  img.src = dataUrl;
+}
+
+function clearSignature(){
+  if(userRole !== "admin") return;
+  const canvas = document.getElementById("pm-signature-canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function renderPmModal(selectedYear){
+  const item = data[currentTab].find(i=>i._id===pmItemId);
+  ensurePmData(item, currentTab);
+  const canEdit = userRole === "admin";
+
+  document.getElementById("pm-modal-title").textContent = "บันทึกการบำรุงรักษา — " + (item.assetId || "");
+  document.getElementById("pm-asset-code").value = item.assetId || "";
+  document.getElementById("pm-responsible").value = item.pmData.responsiblePerson || "";
+  document.getElementById("pm-responsible").disabled = !canEdit;
+
+  const yearSelect = document.getElementById("pm-year-select");
+  const yearKeys = Object.keys(item.pmData.years).sort((a,b)=>b-a);
+  if(!selectedYear) selectedYear = yearKeys[0] || currentThaiYear();
+  yearSelect.innerHTML = yearKeys.map(y=>`<option value="${y}" ${String(y)===String(selectedYear)?"selected":""}>${y}</option>`).join("");
+  yearSelect.disabled = false;
+  document.getElementById("pm-add-year-btn").style.display = canEdit ? "inline-block" : "none";
+
+  const yearData = item.pmData.years[selectedYear] || {checks:{}, inspector:"", inspectDate:"", notes:"", signature:""};
+
+  const grid = document.getElementById("pm-grid");
+  let html = `<tr><th>รายการ</th>${MONTHS_TH.map(m=>`<th>${m}</th>`).join("")}</tr>`;
+  item.pmData.items.forEach((checklistItem)=>{
+    const delBtn = canEdit ? `<button class="pm-item-del" onclick="deletePmChecklistItem('${checklistItem.id}')" title="ลบรายการนี้">×</button>` : "";
+    html += `<tr><td class="item-label">${checklistItem.label}${delBtn}</td>`;
+    MONTHS_TH.forEach((m, monthIdx)=>{
+      const key = checklistItem.id+"_"+(monthIdx+1);
+      const checked = yearData.checks[key] ? "checked" : "";
+      const disabled = canEdit ? "" : "disabled";
+      html += `<td><input type="checkbox" ${checked} ${disabled} onchange="togglePmCheck('${checklistItem.id}', ${monthIdx+1}, this.checked)"></td>`;
+    });
+    html += `</tr>`;
+  });
+  grid.innerHTML = html;
+  document.getElementById("pm-add-item-row").style.display = canEdit ? "flex" : "none";
+
+  document.getElementById("pm-inspector").value = yearData.inspector || "";
+  document.getElementById("pm-inspector").disabled = !canEdit;
+  document.getElementById("pm-inspect-date").value = yearData.inspectDate || "";
+  document.getElementById("pm-inspect-date").disabled = !canEdit;
+  document.getElementById("pm-notes").value = yearData.notes || "";
+  document.getElementById("pm-notes").disabled = !canEdit;
+  document.getElementById("pm-save-btn").style.display = canEdit ? "inline-block" : "none";
+
+  loadSignatureIntoCanvas(yearData.signature || null);
+  const sigCanvas = document.getElementById("pm-signature-canvas");
+  sigCanvas.classList.toggle("readonly", !canEdit);
+  document.getElementById("pm-signature-clear").style.display = canEdit ? "inline" : "none";
+}
+
+async function togglePmCheck(itemId, month, checked){
+  if(userRole !== "admin") return;
+  const item = data[currentTab].find(i=>i._id===pmItemId);
+  const year = document.getElementById("pm-year-select").value;
+  const yearData = item.pmData.years[year];
+  yearData.checks[itemId+"_"+month] = checked;
+  await saveData();
+}
+
+async function addPmChecklistItem(){
+  if(userRole !== "admin") return;
+  const input = document.getElementById("pm-new-item");
+  const label = input.value.trim();
+  if(!label) return;
+  const item = data[currentTab].find(i=>i._id===pmItemId);
+  ensurePmData(item, currentTab);
+  item.pmData.items.push({id: uid(), label});
+  input.value = "";
+  const year = document.getElementById("pm-year-select").value;
+  renderPmModal(year);
+  await saveData();
+}
+
+async function deletePmChecklistItem(itemId){
+  if(userRole !== "admin") return;
+  const ok = await showConfirm("ยืนยันการลบรายการตรวจสอบนี้? (ประวัติการติ๊กของรายการนี้จะหายไปด้วย)");
+  if(!ok) return;
+  const item = data[currentTab].find(i=>i._id===pmItemId);
+  item.pmData.items = item.pmData.items.filter(ci=>ci.id!==itemId);
+  Object.values(item.pmData.years).forEach(yearData=>{
+    Object.keys(yearData.checks).forEach(key=>{
+      if(key.startsWith(itemId+"_")) delete yearData.checks[key];
+    });
+  });
+  const year = document.getElementById("pm-year-select").value;
+  renderPmModal(year);
+  await saveData();
+  showToast("ลบรายการตรวจสอบเรียบร้อย");
+}
+
+function addPmYear(){
+  if(userRole !== "admin") return;
+  const item = data[currentTab].find(i=>i._id===pmItemId);
+  ensurePmData(item, currentTab);
+  const existing = Object.keys(item.pmData.years).map(Number);
+  const nextYear = existing.length ? Math.max(...existing) + 1 : currentThaiYear();
+  if(item.pmData.years[nextYear]){
+    showToast("มีปีนี้อยู่แล้ว");
+    return;
+  }
+  item.pmData.years[nextYear] = {checks:{}, inspector:"", inspectDate:"", notes:"", signature:""};
+  renderPmModal(nextYear);
+}
+
+async function savePmModal(){
+  if(userRole !== "admin") return;
+  const item = data[currentTab].find(i=>i._id===pmItemId);
+  ensurePmData(item, currentTab);
+  item.pmData.responsiblePerson = document.getElementById("pm-responsible").value.trim();
+  const year = document.getElementById("pm-year-select").value;
+  const yearData = item.pmData.years[year];
+  yearData.inspector = document.getElementById("pm-inspector").value.trim();
+  yearData.inspectDate = document.getElementById("pm-inspect-date").value;
+  yearData.notes = document.getElementById("pm-notes").value.trim();
+  yearData.signature = document.getElementById("pm-signature-canvas").toDataURL("image/png");
+  renderTable();
+  await withSavingState("pm-save-btn", "กำลังบันทึก...", saveData);
+  closePmModal();
+  showToast("บันทึกข้อมูล PM เรียบร้อย");
+}
+
+function closePmModal(){
+  document.getElementById("pm-overlay").classList.remove("show");
+}
+
+function openAdd(){
+  if(userRole !== "admin") return;
+  editingId = null;
+  document.getElementById("modal-title").textContent = "เพิ่มรายการ — " + SCHEMAS[currentTab].label;
+  buildForm({});
+  document.getElementById("overlay").classList.add("show");
+}
+
+function openEdit(id){
+  if(userRole !== "admin") return;
+  editingId = id;
+  const item = data[currentTab].find(i=>i._id===id);
+  document.getElementById("modal-title").textContent = "แก้ไขรายการ — " + SCHEMAS[currentTab].label;
+  buildForm(item);
+  document.getElementById("overlay").classList.add("show");
+}
+
+function buildForm(item){
+  const schema = SCHEMAS[currentTab];
+  const container = document.getElementById("modal-fields");
+  container.innerHTML = schema.fields.map(f=>{
+    const val = item[f.key] || "";
+    if(f.type === "select"){
+      return `<div class="field"><label>${f.label}</label>
+        <select id="f-${f.key}">
+          ${f.options.map(o=>`<option value="${o}" ${val===o?"selected":""}>${o}</option>`).join("")}
+        </select></div>`;
+    }
+    if(f.type === "textarea"){
+      return `<div class="field"><label>${f.label}</label>
+        <textarea id="f-${f.key}" rows="2">${val}</textarea></div>`;
+    }
+    return `<div class="field"><label>${f.label}${f.required?" *":""}</label>
+      <input id="f-${f.key}" type="${f.type}" value="${val}" style="${f.mono?"font-family:var(--mono);":""}"></div>`;
+  }).join("");
+}
+
+async function saveItem(){
+  const schema = SCHEMAS[currentTab];
+  const item = {};
+  let missingRequired = false;
+  schema.fields.forEach(f=>{
+    const el = document.getElementById("f-"+f.key);
+    item[f.key] = el.value.trim();
+    if(f.required && !item[f.key]) missingRequired = true;
+  });
+  if(missingRequired){
+    showToast("กรุณากรอกข้อมูลที่จำเป็น (มี * กำกับ)");
+    return;
+  }
+  if(editingId){
+    const idx = data[currentTab].findIndex(i=>i._id===editingId);
+    data[currentTab][idx] = {...data[currentTab][idx], ...item};
+  } else {
+    item._id = uid();
+    item.pmData = {responsiblePerson:"", items: getDefaultPmItems(currentTab), years:{}};
+    data[currentTab].push(item);
+  }
+  render();
+  await withSavingState("save-btn", "กำลังบันทึก...", saveData);
+  closeModal();
+  showToast(editingId ? "บันทึกการแก้ไขเรียบร้อย" : "เพิ่มรายการเรียบร้อย");
+}
+
+async function deleteItem(id){
+  if(userRole !== "admin") return;
+  const ok = await showConfirm("ยืนยันการลบรายการนี้?");
+  if(!ok) return;
+  data[currentTab] = data[currentTab].filter(i=>i._id!==id);
+  render();
+  await saveData();
+  showToast("ลบรายการเรียบร้อย");
+}
+
+function closeModal(){
+  document.getElementById("overlay").classList.remove("show");
+}
+
+document.querySelectorAll(".nav-item").forEach(n=>{
+  n.addEventListener("click", ()=>switchTab(n.dataset.tab));
+});
+document.getElementById("add-btn").addEventListener("click", openAdd);
+document.getElementById("export-excel-btn").addEventListener("click", exportExcel);
+document.getElementById("export-pdf-btn").addEventListener("click", exportPDF);
+document.getElementById("cancel-btn").addEventListener("click", closeModal);
+document.getElementById("save-btn").addEventListener("click", saveItem);
+document.getElementById("search").addEventListener("input", renderTable);
+document.getElementById("status-filter").addEventListener("change", renderTable);
+document.getElementById("overlay").addEventListener("click", (e)=>{ if(e.target.id==="overlay") closeModal(); });
+document.getElementById("pm-close-btn").addEventListener("click", closePmModal);
+document.getElementById("pm-save-btn").addEventListener("click", savePmModal);
+document.getElementById("pm-add-year-btn").addEventListener("click", addPmYear);
+document.getElementById("pm-year-select").addEventListener("change", (e)=>renderPmModal(e.target.value));
+document.getElementById("pm-add-item-btn").addEventListener("click", addPmChecklistItem);
+document.getElementById("pm-new-item").addEventListener("keydown", (e)=>{ if(e.key==="Enter") addPmChecklistItem(); });
+document.getElementById("pm-overlay").addEventListener("click", (e)=>{ if(e.target.id==="pm-overlay") closePmModal(); });
+document.getElementById("confirm-ok-btn").addEventListener("click", ()=>resolveConfirm(true));
+document.getElementById("confirm-cancel-btn").addEventListener("click", ()=>resolveConfirm(false));
+document.getElementById("confirm-overlay").addEventListener("click", (e)=>{ if(e.target.id==="confirm-overlay") resolveConfirm(false); });
+document.getElementById("pm-signature-clear").addEventListener("click", clearSignature);
+setupSignaturePad();
+</script>
+</body>
+</html>
 
