@@ -144,6 +144,16 @@
   .pm-grid input[type="checkbox"]{width:16px; height:16px; accent-color:var(--cyan); cursor:pointer;}
   .pm-grid input[type="checkbox"]:disabled{cursor:default; opacity:0.6;}
   .pm-signoff{border-top:1px solid var(--line); padding-top:14px; margin-top:4px;}
+  .sig-row{margin-bottom:14px;}
+  .sig-label-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;}
+  .sig-label-row label{font-size:12px; color:var(--muted);}
+  .sig-clear-link{font-size:11.5px; color:var(--muted); cursor:pointer; text-decoration:underline;}
+  .sig-clear-link:hover{color:var(--text);}
+  #pm-signature-canvas{
+    display:block; width:100%; height:130px; background:#fff; border-radius:8px;
+    border:1px solid var(--line); cursor:crosshair; touch-action:none;
+  }
+  #pm-signature-canvas.readonly{cursor:default;}
   .toast{
     position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-20px);
     background:var(--panel); border:1px solid var(--line); color:var(--text);
@@ -298,6 +308,13 @@
       </div>
       <div class="pm-signoff">
         <div class="field"><label>ผู้ตรวจสอบ</label><input type="text" id="pm-inspector" placeholder="ชื่อผู้ตรวจสอบ"></div>
+        <div class="sig-row">
+          <div class="sig-label-row">
+            <label>ลายเซ็นผู้ตรวจสอบ</label>
+            <span class="sig-clear-link" id="pm-signature-clear">ล้างลายเซ็น</span>
+          </div>
+          <canvas id="pm-signature-canvas" width="500" height="150"></canvas>
+        </div>
         <div class="field"><label>วันที่ตรวจ</label><input type="date" id="pm-inspect-date"></div>
         <div class="field"><label>หมายเหตุ</label><textarea id="pm-notes" rows="2"></textarea></div>
       </div>
@@ -800,10 +817,80 @@ function openPm(id){
   const years = Object.keys(item.pmData.years).map(Number);
   const cy = currentThaiYear();
   if(years.length === 0){
-    item.pmData.years[cy] = {checks:{}, inspector:"", inspectDate:"", notes:""};
+    item.pmData.years[cy] = {checks:{}, inspector:"", inspectDate:"", notes:"", signature:""};
   }
   renderPmModal(item.pmData.years[cy] ? cy : Math.max(...years));
   document.getElementById("pm-overlay").classList.add("show");
+}
+
+let sigDrawing = false;
+let sigLastPos = null;
+
+function getSigCanvasPos(canvas, evt){
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  let clientX, clientY;
+  if(evt.touches && evt.touches.length){
+    clientX = evt.touches[0].clientX;
+    clientY = evt.touches[0].clientY;
+  } else {
+    clientX = evt.clientX;
+    clientY = evt.clientY;
+  }
+  return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+}
+
+function setupSignaturePad(){
+  const canvas = document.getElementById("pm-signature-canvas");
+  if(!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.strokeStyle = "#1a1a2e";
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  function start(e){
+    if(userRole !== "admin") return;
+    e.preventDefault();
+    sigDrawing = true;
+    sigLastPos = getSigCanvasPos(canvas, e);
+  }
+  function move(e){
+    if(!sigDrawing) return;
+    e.preventDefault();
+    const pos = getSigCanvasPos(canvas, e);
+    ctx.beginPath();
+    ctx.moveTo(sigLastPos.x, sigLastPos.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    sigLastPos = pos;
+  }
+  function end(){ sigDrawing = false; }
+
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", end);
+  canvas.addEventListener("touchstart", start, {passive:false});
+  canvas.addEventListener("touchmove", move, {passive:false});
+  canvas.addEventListener("touchend", end);
+}
+
+function loadSignatureIntoCanvas(dataUrl){
+  const canvas = document.getElementById("pm-signature-canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if(!dataUrl) return;
+  const img = new Image();
+  img.onload = function(){ ctx.drawImage(img, 0, 0, canvas.width, canvas.height); };
+  img.src = dataUrl;
+}
+
+function clearSignature(){
+  if(userRole !== "admin") return;
+  const canvas = document.getElementById("pm-signature-canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
 function renderPmModal(selectedYear){
@@ -823,7 +910,7 @@ function renderPmModal(selectedYear){
   yearSelect.disabled = false;
   document.getElementById("pm-add-year-btn").style.display = canEdit ? "inline-block" : "none";
 
-  const yearData = item.pmData.years[selectedYear] || {checks:{}, inspector:"", inspectDate:"", notes:""};
+  const yearData = item.pmData.years[selectedYear] || {checks:{}, inspector:"", inspectDate:"", notes:"", signature:""};
 
   const grid = document.getElementById("pm-grid");
   let html = `<tr><th>รายการ</th>${MONTHS_TH.map(m=>`<th>${m}</th>`).join("")}</tr>`;
@@ -848,6 +935,11 @@ function renderPmModal(selectedYear){
   document.getElementById("pm-notes").value = yearData.notes || "";
   document.getElementById("pm-notes").disabled = !canEdit;
   document.getElementById("pm-save-btn").style.display = canEdit ? "inline-block" : "none";
+
+  loadSignatureIntoCanvas(yearData.signature || null);
+  const sigCanvas = document.getElementById("pm-signature-canvas");
+  sigCanvas.classList.toggle("readonly", !canEdit);
+  document.getElementById("pm-signature-clear").style.display = canEdit ? "inline" : "none";
 }
 
 async function togglePmCheck(itemId, month, checked){
@@ -900,7 +992,7 @@ function addPmYear(){
     showToast("มีปีนี้อยู่แล้ว");
     return;
   }
-  item.pmData.years[nextYear] = {checks:{}, inspector:"", inspectDate:"", notes:""};
+  item.pmData.years[nextYear] = {checks:{}, inspector:"", inspectDate:"", notes:"", signature:""};
   renderPmModal(nextYear);
 }
 
@@ -914,6 +1006,7 @@ async function savePmModal(){
   yearData.inspector = document.getElementById("pm-inspector").value.trim();
   yearData.inspectDate = document.getElementById("pm-inspect-date").value;
   yearData.notes = document.getElementById("pm-notes").value.trim();
+  yearData.signature = document.getElementById("pm-signature-canvas").toDataURL("image/png");
   renderTable();
   await withSavingState("pm-save-btn", "กำลังบันทึก...", saveData);
   closePmModal();
@@ -1023,6 +1116,8 @@ document.getElementById("pm-overlay").addEventListener("click", (e)=>{ if(e.targ
 document.getElementById("confirm-ok-btn").addEventListener("click", ()=>resolveConfirm(true));
 document.getElementById("confirm-cancel-btn").addEventListener("click", ()=>resolveConfirm(false));
 document.getElementById("confirm-overlay").addEventListener("click", (e)=>{ if(e.target.id==="confirm-overlay") resolveConfirm(false); });
+document.getElementById("pm-signature-clear").addEventListener("click", clearSignature);
+setupSignaturePad();
 </script>
 </body>
 </html>
